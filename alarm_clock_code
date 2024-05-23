@@ -1,0 +1,211 @@
+//Declared Libraries 
+#include <MD_Parola.h>
+#include <MD_MAX72xx.h>
+#include <SPI.h>
+#include "RTClib.h"
+
+//Initialize RTC
+RTC_DS1307 rtc;
+
+
+
+//Button Pins
+
+#define btn1  2
+#define btn2  5
+#define btn3  6
+#define btn4  7
+
+#define outPin 8
+
+
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+//#define HARDWARE_TYPE MD_MAX72XX::GENERIC_HW
+
+// Defining size, and output pins
+#define MAX_DEVICES 4
+#define CS_PIN 3
+
+//Initialize display
+MD_Parola myDisplay = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+
+int Hour,Minute;
+
+int setHour, setMinute;
+
+long long timerTime = 0;
+
+
+unsigned static long timer = 0;
+
+String realTime = "";
+
+String setTime = "";
+
+String setHourDig = "00";
+String setMinuteDig = "00";
+
+boolean clockMode = true;
+boolean isAlarmStart = false;
+
+
+//getting button input
+
+boolean isBtn1(){
+   return !digitalRead(btn1);
+}
+
+boolean isBtn2(){
+   return !digitalRead(btn2);
+}
+
+boolean isBtn3(){
+   return !digitalRead(btn3);
+}
+
+boolean isBtn4(){
+   return !digitalRead(btn4);
+}
+
+
+void setup() {
+  Serial.begin(9600);
+
+  //setting up buttons
+  
+  pinMode(btn1, INPUT_PULLUP);
+  pinMode(btn2, INPUT_PULLUP);
+  pinMode(btn3, INPUT_PULLUP);
+  pinMode(btn4, INPUT_PULLUP);
+  pinMode(outPin, OUTPUT);
+   digitalWrite(outPin, LOW);
+  
+
+  //Initializing display
+  myDisplay.begin();
+  myDisplay.setIntensity(0);
+  myDisplay.displayClear();
+  
+  //initializing RTC
+   if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    while (1) delay(10);
+  }
+
+   //Set time and date to the date of sketch compilation
+   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
+}
+
+void loop() {
+  getTime();
+
+ 
+   if(clockMode){
+      showDisplay(realTime.c_str());
+
+      if(isBtn1()){
+         delay(500);
+          myDisplay.displayClear();
+          setHour = 0;
+          setMinute = 0;
+          isAlarmStart = false;
+          setHourDig = "";
+          setMinuteDig = "";
+          clockMode = false;
+       
+      }
+   }
+
+   if(!clockMode){
+       if(isBtn3()){
+          delay(500); 
+            setHour++;
+       }
+
+       if(isBtn4()){
+          delay(500); 
+            setMinute++;
+       }  
+
+
+       if(setHour == 24){
+         setHour = 0;
+       }
+
+       if(setMinute == 60){
+          setMinute = 0;
+       }
+
+       if(setHour == 0){
+         setHourDig = "00";
+       }
+       else{
+         setHourDig = setHour;
+       }
+
+
+       if(setMinute == 0){
+         setMinuteDig = "00";
+       }
+       else{
+         setMinuteDig = setMinute;
+       }
+
+
+       setTime = setHourDig + ":" + setMinuteDig;
+        showDisplay(setTime.c_str());
+
+    
+       if(isBtn2()){
+         delay(500);
+           isAlarmStart = true;
+            myDisplay.displayClear();
+             clockMode = true;
+       }
+
+       if(isBtn1()){
+         delay(500);
+          myDisplay.displayClear();
+          clockMode = true;
+      }
+
+   }
+
+   if(isAlarmStart){
+      if(Hour == setHour && Minute == setMinute){
+         myDisplay.displayClear();
+         while(true){
+           showDisplay("ALARM");
+             digitalWrite(outPin, HIGH);
+
+             if(isBtn1()) {
+               delay(500);
+                 digitalWrite(outPin, LOW);
+                 myDisplay.displayClear();
+                 clockMode = true;
+                 isAlarmStart = false; 
+                 break;
+             }
+
+         }
+      }
+   }
+
+Serial.println(realTime);
+
+}
+void getTime(){
+    DateTime now = rtc.now();
+
+    Hour = now.hour();
+    Minute = now.minute();
+
+    realTime = (String)Hour + ":" + (String)Minute;
+}
+
+void showDisplay(char* text){
+    myDisplay.setTextAlignment(PA_CENTER);
+    myDisplay.print(text);
+}
